@@ -43,5 +43,6 @@ class ReminderReceiver : BroadcastReceiver() {
         }
 
         ReminderScheduler.scheduleNext(context)
+        PersistentNotification.update(context)   // 顺带刷新常驻通知里的天数
     }
 }

@@ -7,7 +7,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 enum class AppTheme(val key: String) {
-    DARK("dark"), LIGHT("light"), GRADIENT("gradient"), RED("red");
+    DARK("dark"), LIGHT("light"), GRADIENT("gradient"), PHOTO("photo"), RED("red");
 
     companion object {
         fun from(key: String?): AppTheme = entries.firstOrNull { it.key == key } ?: DARK
@@ -23,7 +23,10 @@ object DeathClock {
     fun birthDateMillis(ctx: Context): Long {
         val v = prefs(ctx).getLong("birthDate", 0L)
         if (v != 0L) return v
-        return Calendar.getInstance().apply { add(Calendar.YEAR, -25) }.timeInMillis
+        // 默认值必须固化保存：否则“当前时间减 25 年”随时间漂移，倒计时恒定不动
+        val def = Calendar.getInstance().apply { add(Calendar.YEAR, -25) }.timeInMillis
+        prefs(ctx).edit().putLong("birthDate", def).apply()
+        return def
     }
 
     fun setBirthDate(ctx: Context, millis: Long) {
@@ -59,6 +62,13 @@ object DeathClock {
 
     fun remainingSeconds(ctx: Context, nowMillis: Long): Double =
         max(0.0, (deathMillis(ctx) - nowMillis) / 1000.0)
+
+    fun remainingDays(ctx: Context, nowMillis: Long): Long =
+        (remainingSeconds(ctx, nowMillis) / 86400.0).toLong()
+
+    fun persistentEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean("persistentOn", false)
+    fun setPersistentEnabled(ctx: Context, on: Boolean) =
+        prefs(ctx).edit().putBoolean("persistentOn", on).apply()
 
     fun lifeProgress(ctx: Context, nowMillis: Long): Double {
         val birth = birthDateMillis(ctx)

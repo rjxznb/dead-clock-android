@@ -38,4 +38,27 @@
     <string name="reminder_channel">每日提醒</string>
     <string name="reminder_title">✨ 记录今天</string>
     <string name="reminder_body">今天最让你开心或最有意义的一件事是什么？睡前花 30 秒记下来。</string>
+    <string name="poster_share">分享海报</string>
+    <string name="poster_brand">OneLife ⏳ 把握当下</string>
+    <string name="poster_style_gradient">渐变</string>
+    <string name="poster_style_dark">黑底</string>
+    <string name="poster_day_n">人生第 %1$s 天</string>
+    <string name="poster_moment_n">第 %1$d 个美好瞬间</string>
+    <string name="summary_week">本周</string>
+    <string name="summary_month">本月</string>
+    <string name="summary_year">今年</string>
+    <string name="summary_title">时光总结</string>
+    <string name="summary_moments_unit">个美好瞬间</string>
+    <string name="summary_coverage">%2$d 天中记录了 %1$d 天</string>
+    <string name="summary_empty">这段时间还没有记录。</string>
+    <string name="theme_photo">照片轮播</string>
+    <string name="settings_photo_pick">选择背景照片（最多 9 张）</string>
+    <string name="settings_photo_count">已选 %1$d 张照片</string>
+    <string name="settings_persistent">通知栏常驻剩余天数</string>
+    <string name="persistent_channel">剩余天数</string>
+    <string name="persistent_text">✨ 你还拥有 %1$s 天 — 把握当下</string>
+    <string name="widget_header">你还拥有</string>
+    <string name="widget_day_unit">天</string>
+    <string name="widget_desc">把剩余天数常驻在桌面上。</string>
+    <string name="close">关闭</string>
 </resources>

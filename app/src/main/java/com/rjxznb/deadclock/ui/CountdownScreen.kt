@@ -1,7 +1,12 @@
 package com.rjxznb.deadclock.ui
 
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -9,6 +14,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,12 +46,15 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +62,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -61,12 +73,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.appwidget.updateAll
 import com.rjxznb.deadclock.R
 import com.rjxznb.deadclock.core.AppTheme
 import com.rjxznb.deadclock.core.DeathClock
 import com.rjxznb.deadclock.core.JournalStore
+import com.rjxznb.deadclock.core.PhotoStore
+import com.rjxznb.deadclock.core.SummaryPeriod
+import com.rjxznb.deadclock.core.SummaryStats
+import com.rjxznb.deadclock.reminder.PersistentNotification
 import com.rjxznb.deadclock.reminder.ReminderScheduler
+import com.rjxznb.deadclock.widget.DeadClockGlanceWidget
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -109,15 +128,50 @@ private fun palette(theme: AppTheme): Palette = when (theme) {
     )
 }
 
+/** 陀螺仪视差：照片主题下背景随设备倾斜平移 */
+@Composable
+private fun rememberParallaxOffset(enabled: Boolean): State<Offset> {
+    val ctx = LocalContext.current
+    val offset = remember { mutableStateOf(Offset.Zero) }
+    DisposableEffect(enabled) {
+        if (!enabled) {
+            offset.value = Offset.Zero
+            onDispose { }
+        } else {
+            val sm = ctx.getSystemService(SensorManager::class.java)
+            val sensor = sm?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(e: SensorEvent) {
+                    val x = (-e.values[0] / 9.8f).coerceIn(-0.5f, 0.5f) * 90f
+                    val y = ((e.values[1] - 5f) / 9.8f).coerceIn(-0.5f, 0.5f) * 90f
+                    offset.value = Offset(
+                        offset.value.x * 0.8f + x * 0.2f,
+                        offset.value.y * 0.8f + y * 0.2f
+                    )
+                }
+
+                override fun onAccuracyChanged(s: Sensor?, a: Int) {}
+            }
+            if (sensor != null) {
+                sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
+            }
+            onDispose { sm?.unregisterListener(listener) }
+        }
+    }
+    return offset
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CountdownScreen() {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     var theme by remember { mutableStateOf(DeathClock.theme(ctx)) }
     var refreshKey by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
     var showCheckIn by remember { mutableStateOf(false) }
     var showJournal by remember { mutableStateOf(false) }
+    var posterData by remember { mutableStateOf<PosterData?>(null) }
 
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -133,33 +187,83 @@ fun CountdownScreen() {
     }
     val streak = remember(refreshKey) { JournalStore.streak(ctx) }
     val total = remember(refreshKey) { JournalStore.totalCount(ctx) }
+    val photos = remember(refreshKey) {
+        if (DeathClock.theme(ctx) == AppTheme.PHOTO) {
+            PhotoStore.load(ctx).map { it.asImageBitmap() }
+        } else emptyList()
+    }
+    val parallax by rememberParallaxOffset(theme == AppTheme.PHOTO && photos.isNotEmpty())
 
-    val bgModifier: Modifier = when (theme) {
-        AppTheme.LIGHT -> Modifier.background(
-            Brush.verticalGradient(
-                listOf(Color(0xFFFFF8F0), Color(0xFFFFEEF5), Color(0xFFEEF6FF))
-            )
-        )
-        AppTheme.GRADIENT -> {
-            val transition = rememberInfiniteTransition(label = "bg")
-            val shift by transition.animateFloat(
-                initialValue = 0f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(9000, easing = LinearEasing), RepeatMode.Reverse),
-                label = "shift"
-            )
-            Modifier.background(
-                Brush.linearGradient(
-                    colors = listOf(Color(0xFF2D1B69), Color(0xFFB8326E), Color(0xFFE8663D)),
-                    start = Offset(shift * 600f, 0f),
-                    end = Offset(1200f + shift * 600f, 2400f)
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        // 背景层
+        when (theme) {
+            AppTheme.LIGHT -> Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFFFFF8F0), Color(0xFFFFEEF5), Color(0xFFEEF6FF))
+                    )
                 )
             )
-        }
-        else -> Modifier.background(Color.Black)
-    }
+            AppTheme.GRADIENT -> {
+                val transition = rememberInfiniteTransition(label = "bg")
+                val shift by transition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        tween(9000, easing = LinearEasing), RepeatMode.Reverse),
+                    label = "shift"
+                )
+                Box(
+                    Modifier.fillMaxSize().background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF2D1B69), Color(0xFFB8326E), Color(0xFFE8663D)),
+                            start = Offset(shift * 600f, 0f),
+                            end = Offset(1200f + shift * 600f, 2400f)
+                        )
+                    )
+                )
+            }
+            AppTheme.PHOTO -> {
+                if (photos.isNotEmpty()) {
+                    // 多张照片每 20 秒淡入淡出轮播，叠加陀螺仪视差
+                    val interval = 20000L
+                    val t = now.toDouble() / interval
+                    val index = (t.toLong() % photos.size).toInt()
+                    val next = (index + 1) % photos.size
+                    val frac = (t - kotlin.math.floor(t)).toFloat()
+                    val fade = if (photos.size > 1) ((frac - 0.9f) * 10f).coerceAtLeast(0f) else 0f
 
-    Box(Modifier.fillMaxSize().then(bgModifier)) {
+                    Box(
+                        Modifier.fillMaxSize().graphicsLayer {
+                            scaleX = 1.18f
+                            scaleY = 1.18f
+                            translationX = parallax.x
+                            translationY = parallax.y
+                        }
+                    ) {
+                        Image(
+                            bitmap = photos[index],
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        if (fade > 0f) {
+                            Image(
+                                bitmap = photos[next],
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = fade }
+                            )
+                        }
+                    }
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+                }
+            }
+            else -> {}
+        }
+
+        // 内容层
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -167,7 +271,8 @@ fun CountdownScreen() {
             Spacer(Modifier.weight(1f))
 
             Text(
-                stringResource(if (theme == AppTheme.RED) R.string.headline_fear else R.string.headline_normal),
+                stringResource(
+                    if (theme == AppTheme.RED) R.string.headline_fear else R.string.headline_normal),
                 color = pal.textSecondary,
                 fontSize = 14.sp,
                 letterSpacing = 5.sp
@@ -252,7 +357,8 @@ fun CountdownScreen() {
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        stringResource(if (checkedToday) R.string.checkin_done else R.string.checkin_button),
+                        stringResource(
+                            if (checkedToday) R.string.checkin_done else R.string.checkin_button),
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -264,7 +370,16 @@ fun CountdownScreen() {
         }
 
         if (showJournal) {
-            JournalOverlay(pal, refreshKey) { showJournal = false }
+            JournalOverlay(
+                pal = pal,
+                refreshKey = refreshKey,
+                onClose = { showJournal = false },
+                onPoster = { posterData = it }
+            )
+        }
+
+        posterData?.let { data ->
+            PosterScreen(data) { posterData = null }
         }
     }
 
@@ -293,6 +408,8 @@ fun CountdownScreen() {
                         .clickable(enabled = enabled) {
                             JournalStore.saveToday(ctx, text.trim())
                             ReminderScheduler.scheduleNext(ctx)
+                            PersistentNotification.update(ctx)
+                            scope.launch { DeadClockGlanceWidget().updateAll(ctx) }
                             refreshKey++
                             showCheckIn = false
                         },
@@ -317,7 +434,11 @@ fun CountdownScreen() {
         }) {
             SettingsContent(
                 onThemeChanged = { theme = it },
-                onChanged = { refreshKey++ }
+                onChanged = {
+                    refreshKey++
+                    PersistentNotification.update(ctx)
+                    scope.launch { DeadClockGlanceWidget().updateAll(ctx) }
+                }
             )
         }
     }
@@ -345,7 +466,12 @@ private fun UnitBlock(value: Int, labelRes: Int, pal: Palette, modifier: Modifie
 }
 
 @Composable
-private fun JournalOverlay(pal: Palette, refreshKey: Int, onClose: () -> Unit) {
+private fun JournalOverlay(
+    pal: Palette,
+    refreshKey: Int,
+    onClose: () -> Unit,
+    onPoster: (PosterData) -> Unit,
+) {
     val ctx = LocalContext.current
     val entries = remember(refreshKey) { JournalStore.load(ctx) }
     val displayFormat = remember { SimpleDateFormat("M/d EEEE", Locale.getDefault()) }
@@ -365,13 +491,25 @@ private fun JournalOverlay(pal: Palette, refreshKey: Int, onClose: () -> Unit) {
                 }
                 Spacer(Modifier.weight(1f))
                 if (entries.isNotEmpty()) {
-                    Text(
-                        stringResource(R.string.streak_line, JournalStore.streak(ctx), entries.size),
-                        color = pal.accent,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(end = 16.dp)
-                    )
+                    // 周/月/年总结入口
+                    TextButton(onClick = {
+                        onPoster(PosterData.Summary(SummaryStats.build(ctx, SummaryPeriod.WEEK)))
+                    }) { Text(stringResource(R.string.summary_week), color = pal.textSecondary, fontSize = 13.sp) }
+                    TextButton(onClick = {
+                        onPoster(PosterData.Summary(SummaryStats.build(ctx, SummaryPeriod.MONTH)))
+                    }) { Text(stringResource(R.string.summary_month), color = pal.textSecondary, fontSize = 13.sp) }
+                    TextButton(onClick = {
+                        onPoster(PosterData.Summary(SummaryStats.build(ctx, SummaryPeriod.YEAR)))
+                    }) { Text(stringResource(R.string.summary_year), color = pal.textSecondary, fontSize = 13.sp) }
                 }
+            }
+            if (entries.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.streak_line, JournalStore.streak(ctx), entries.size),
+                    color = pal.accent,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
             }
             if (entries.isEmpty()) {
                 Box(Modifier.fillMaxSize().padding(40.dp), contentAlignment = Alignment.Center) {
@@ -382,16 +520,19 @@ private fun JournalOverlay(pal: Palette, refreshKey: Int, onClose: () -> Unit) {
                     )
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+                LazyColumn(
+                    Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 8.dp)
+                ) {
                     items(entries) { entry ->
+                        val todayLabel = stringResource(R.string.journal_today)
                         Column(
                             Modifier.fillMaxWidth()
                                 .padding(vertical = 6.dp)
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(pal.card)
+                                .clickable { onPoster(PosterData.Single(entry)) }
                                 .padding(14.dp)
                         ) {
-                            val todayLabel = stringResource(R.string.journal_today)
                             val dateText = try {
                                 val d = parseFormat.parse(entry.dateKey)
                                 val label = displayFormat.format(d ?: Date())
@@ -418,15 +559,35 @@ private fun SettingsContent(onThemeChanged: (AppTheme) -> Unit, onChanged: () ->
     var expectancy by remember { mutableIntStateOf(DeathClock.lifeExpectancy(ctx)) }
     var theme by remember { mutableStateOf(DeathClock.theme(ctx)) }
     var reminderOn by remember { mutableStateOf(DeathClock.reminderEnabled(ctx)) }
+    var persistentOn by remember { mutableStateOf(DeathClock.persistentEnabled(ctx)) }
+    var photoCount by remember { mutableIntStateOf(PhotoStore.count(ctx)) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
-    val permLauncher = rememberLauncherForActivityResult(
+    val reminderPermLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         DeathClock.setReminderEnabled(ctx, granted)
         if (granted) ReminderScheduler.scheduleNext(ctx)
         reminderOn = granted
+    }
+
+    val persistentPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        DeathClock.setPersistentEnabled(ctx, granted)
+        persistentOn = granted
+        onChanged()
+    }
+
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(9)
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            PhotoStore.save(ctx, uris)
+            photoCount = PhotoStore.count(ctx)
+            onChanged()
+        }
     }
 
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
@@ -489,10 +650,30 @@ private fun SettingsContent(onThemeChanged: (AppTheme) -> Unit, onChanged: () ->
                             AppTheme.DARK -> R.string.theme_dark
                             AppTheme.LIGHT -> R.string.theme_light
                             AppTheme.GRADIENT -> R.string.theme_gradient
+                            AppTheme.PHOTO -> R.string.theme_photo
                             AppTheme.RED -> R.string.theme_red
                         }
                     )
                 )
+            }
+        }
+
+        if (theme == AppTheme.PHOTO) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().clickable {
+                    photoPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }.padding(vertical = 8.dp)
+            ) {
+                Text(stringResource(R.string.settings_photo_pick))
+                Spacer(Modifier.weight(1f))
+                if (photoCount > 0) {
+                    Text(
+                        stringResource(R.string.settings_photo_count, photoCount),
+                        color = Color.Gray, fontSize = 13.sp
+                    )
+                }
             }
         }
 
@@ -503,7 +684,7 @@ private fun SettingsContent(onThemeChanged: (AppTheme) -> Unit, onChanged: () ->
             Switch(checked = reminderOn, onCheckedChange = { on ->
                 if (on) {
                     if (Build.VERSION.SDK_INT >= 33) {
-                        permLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        reminderPermLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                     } else {
                         DeathClock.setReminderEnabled(ctx, true)
                         ReminderScheduler.scheduleNext(ctx)
@@ -531,6 +712,26 @@ private fun SettingsContent(onThemeChanged: (AppTheme) -> Unit, onChanged: () ->
                     color = Color.Gray
                 )
             }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.settings_persistent))
+            Spacer(Modifier.weight(1f))
+            Switch(checked = persistentOn, onCheckedChange = { on ->
+                if (on) {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        persistentPermLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        DeathClock.setPersistentEnabled(ctx, true)
+                        persistentOn = true
+                        onChanged()
+                    }
+                } else {
+                    DeathClock.setPersistentEnabled(ctx, false)
+                    persistentOn = false
+                    onChanged()
+                }
+            })
         }
 
         Spacer(Modifier.height(32.dp))

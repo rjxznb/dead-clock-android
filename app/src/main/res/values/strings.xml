@@ -38,4 +38,27 @@
     <string name="reminder_channel">Daily reminder</string>
     <string name="reminder_title">✨ Record today</string>
     <string name="reminder_body">What made you happiest or felt most meaningful today? Take 30 seconds before bed to write it down.</string>
+    <string name="poster_share">Share poster</string>
+    <string name="poster_brand">OneLife ⏳ Seize the day</string>
+    <string name="poster_style_gradient">Gradient</string>
+    <string name="poster_style_dark">Dark</string>
+    <string name="poster_day_n">Day %1$s of your life</string>
+    <string name="poster_moment_n">Beautiful moment #%1$d</string>
+    <string name="summary_week">This week</string>
+    <string name="summary_month">This month</string>
+    <string name="summary_year">This year</string>
+    <string name="summary_title">Time Recap</string>
+    <string name="summary_moments_unit">beautiful moments</string>
+    <string name="summary_coverage">Recorded on %1$d of %2$d days</string>
+    <string name="summary_empty">No moments recorded in this period yet.</string>
+    <string name="theme_photo">Photo slideshow</string>
+    <string name="settings_photo_pick">Choose background photos (up to 9)</string>
+    <string name="settings_photo_count">%1$d photo(s) selected</string>
+    <string name="settings_persistent">Days-left in notification bar</string>
+    <string name="persistent_channel">Days remaining</string>
+    <string name="persistent_text">✨ You still have %1$s days — seize the day</string>
+    <string name="widget_header">You still have</string>
+    <string name="widget_day_unit">days</string>
+    <string name="widget_desc">Your remaining days, always on the home screen.</string>
+    <string name="close">Close</string>
 </resources>
