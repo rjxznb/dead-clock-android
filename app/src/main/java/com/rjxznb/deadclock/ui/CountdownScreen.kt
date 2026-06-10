@@ -391,12 +391,11 @@ private fun JournalOverlay(pal: Palette, refreshKey: Int, onClose: () -> Unit) {
                                 .background(pal.card)
                                 .padding(14.dp)
                         ) {
+                            val todayLabel = stringResource(R.string.journal_today)
                             val dateText = try {
                                 val d = parseFormat.parse(entry.dateKey)
                                 val label = displayFormat.format(d ?: Date())
-                                if (entry.dateKey == todayKey)
-                                    "$label · ${stringResource(R.string.journal_today)}"
-                                else label
+                                if (entry.dateKey == todayKey) "$label · $todayLabel" else label
                             } catch (_: Exception) {
                                 entry.dateKey
                             }
