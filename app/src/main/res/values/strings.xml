@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OneLife</string>
+    <string name="headline_normal">Seize the day · You still have</string>
+    <string name="headline_fear">Time left before death</string>
+    <string name="unit_seconds">seconds</string>
+    <string name="unit_y">yrs</string>
+    <string name="unit_d">days</string>
+    <string name="unit_h">hrs</string>
+    <string name="unit_m">min</string>
+    <string name="unit_s">sec</string>
+    <string name="progress_normal">%1$s%% of the journey lived</string>
+    <string name="progress_fear">%1$s%% of life gone</string>
+    <string name="streak_line">🔥 %1$d-day streak · %2$d beautiful moments</string>
+    <string name="tab_journal">Journal</string>
+    <string name="tab_settings">Settings</string>
+    <string name="checkin_button">Record today</string>
+    <string name="checkin_done">Recorded today</string>
+    <string name="checkin_title">✨ Record today</string>
+    <string name="checkin_placeholder">What made you happiest or felt most meaningful today?</string>
+    <string name="checkin_save">Save this moment</string>
+    <string name="journal_empty">Record one happy or meaningful thing each day — they will grow into the footprints of your life.</string>
+    <string name="journal_today">Today</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_birthdate">Date of birth</string>
+    <string name="settings_expectancy">Life expectancy</string>
+    <string name="settings_age_format">%1$d yrs</string>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_gradient">Flowing gradient</string>
+    <string name="theme_red">Alert red</string>
+    <string name="settings_reminder">Bedtime check-in reminder</string>
+    <string name="settings_reminder_time">Reminder time</string>
+    <string name="settings_done">Done</string>
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="reminder_channel">Daily reminder</string>
+    <string name="reminder_title">✨ Record today</string>
+    <string name="reminder_body">What made you happiest or felt most meaningful today? Take 30 seconds before bed to write it down.</string>
+</resources>

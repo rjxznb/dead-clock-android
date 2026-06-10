@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OneLife</string>
+    <string name="headline_normal">把握当下 · 你还拥有</string>
+    <string name="headline_fear">距离死亡还剩</string>
+    <string name="unit_seconds">秒</string>
+    <string name="unit_y">年</string>
+    <string name="unit_d">天</string>
+    <string name="unit_h">时</string>
+    <string name="unit_m">分</string>
+    <string name="unit_s">秒</string>
+    <string name="progress_normal">人生旅程已走过 %1$s%%</string>
+    <string name="progress_fear">人生已逝去 %1$s%%</string>
+    <string name="streak_line">🔥 已连续记录 %1$d 天 · 共 %2$d 个美好瞬间</string>
+    <string name="tab_journal">足迹</string>
+    <string name="tab_settings">设置</string>
+    <string name="checkin_button">记录今天</string>
+    <string name="checkin_done">今日已记录</string>
+    <string name="checkin_title">✨ 记录今天</string>
+    <string name="checkin_placeholder">今天最让你开心或最有意义的一件事是什么？</string>
+    <string name="checkin_save">保存这个瞬间</string>
+    <string name="journal_empty">每天记下一件让你开心或有意义的事，它们会在这里慢慢积累成你的人生足迹。</string>
+    <string name="journal_today">今天</string>
+    <string name="settings_title">设置</string>
+    <string name="settings_birthdate">出生日期</string>
+    <string name="settings_expectancy">预期寿命</string>
+    <string name="settings_age_format">%1$d 岁</string>
+    <string name="settings_theme">主题</string>
+    <string name="theme_dark">深色</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_gradient">流动渐变</string>
+    <string name="theme_red">醒目红</string>
+    <string name="settings_reminder">睡前提醒打卡</string>
+    <string name="settings_reminder_time">提醒时间</string>
+    <string name="settings_done">完成</string>
+    <string name="back">返回</string>
+    <string name="cancel">取消</string>
+    <string name="reminder_channel">每日提醒</string>
+    <string name="reminder_title">✨ 记录今天</string>
+    <string name="reminder_body">今天最让你开心或最有意义的一件事是什么？睡前花 30 秒记下来。</string>
+</resources>
