@@ -71,6 +71,7 @@ fun PosterScreen(data: PosterData, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var darkStyle by remember { mutableStateOf(false) }
+    var saved by remember { mutableStateOf(false) }
     val graphicsLayer = rememberGraphicsLayer()
 
     Box(
@@ -130,7 +131,20 @@ fun PosterScreen(data: PosterData, onClose: () -> Unit) {
                     fontWeight = FontWeight.SemiBold
                 )
             }
-            Spacer(Modifier.height(32.dp))
+
+            // 低调的辅助操作：无背景纯文字
+            TextButton(onClick = {
+                scope.launch {
+                    if (savePosterToGallery(ctx, graphicsLayer)) saved = true
+                }
+            }) {
+                Text(
+                    stringResource(if (saved) R.string.poster_saved else R.string.poster_save),
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -293,6 +307,28 @@ private fun SummaryContent(ctx: Context, stats: SummaryStats, accent: Brush?) {
             )
             Text(e.text, color = Color.White, fontSize = 12.sp, maxLines = 2)
         }
+    }
+}
+
+private suspend fun savePosterToGallery(ctx: Context, layer: GraphicsLayer): Boolean {
+    return try {
+        val bitmap = layer.toImageBitmap().asAndroidBitmap()
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,
+                "OneLife-${System.currentTimeMillis()}.png")
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/OneLife")
+            }
+        }
+        val uri = ctx.contentResolver.insert(
+            android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return false
+        ctx.contentResolver.openOutputStream(uri)?.use { out ->
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+        }
+        true
+    } catch (_: Exception) {
+        false
     }
 }
 

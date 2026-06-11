@@ -39,6 +39,8 @@
     <string name="reminder_title">✨ 记录今天</string>
     <string name="reminder_body">今天最让你开心或最有意义的一件事是什么？睡前花 30 秒记下来。</string>
     <string name="poster_share">分享海报</string>
+    <string name="poster_save">保存到相册</string>
+    <string name="poster_saved">已保存到相册</string>
     <string name="poster_brand">OneLife ⏳ 把握当下</string>
     <string name="poster_style_gradient">渐变</string>
     <string name="poster_style_dark">黑底</string>

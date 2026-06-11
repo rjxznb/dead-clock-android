@@ -39,6 +39,8 @@
     <string name="reminder_title">✨ Record today</string>
     <string name="reminder_body">What made you happiest or felt most meaningful today? Take 30 seconds before bed to write it down.</string>
     <string name="poster_share">Share poster</string>
+    <string name="poster_save">Save to album</string>
+    <string name="poster_saved">Saved to album</string>
     <string name="poster_brand">OneLife ⏳ Seize the day</string>
     <string name="poster_style_gradient">Gradient</string>
     <string name="poster_style_dark">Dark</string>
