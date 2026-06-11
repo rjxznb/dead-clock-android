@@ -2,8 +2,14 @@ package com.rjxznb.deadclock.ui
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,8 +17,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,11 +40,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -48,6 +58,7 @@ import com.rjxznb.deadclock.R
 import com.rjxznb.deadclock.core.DeathClock
 import com.rjxznb.deadclock.core.JournalEntry
 import com.rjxznb.deadclock.core.JournalStore
+import com.rjxznb.deadclock.core.PhotoStore
 import com.rjxznb.deadclock.core.SummaryStats
 import kotlinx.coroutines.launch
 import java.io.File
@@ -60,19 +71,42 @@ sealed class PosterData {
     data class Summary(val stats: SummaryStats) : PosterData()
 }
 
+/** 海报背景：渐变 / 黑底 / 调色板纯色 / 相册照片 */
+sealed class PosterBg {
+    data object Gradient : PosterBg()
+    data object Dark : PosterBg()
+    data class Solid(val color: Color) : PosterBg()
+    data class Photo(val bitmap: ImageBitmap) : PosterBg()
+}
+
 private val PosterGradient = Brush.linearGradient(
     listOf(Color(0xFF5928A8), Color(0xFFD9408C), Color(0xFFFF8C4D))
 )
 private val PosterDark = Color(0xFF0D0D12)
 
-/** 全屏海报页：预览 + 渐变/黑底切换 + 分享 */
+/** 深色系调色板：保证白色文字可读 */
+private val SolidPalette = listOf(
+    Color(0xFFB3261E), Color(0xFFE8590C), Color(0xFFC77800),
+    Color(0xFF2E7D32), Color(0xFF00696D), Color(0xFF1A5FB4),
+    Color(0xFF6741D9), Color(0xFFC2185B), Color(0xFF37474F),
+)
+
+/** 全屏海报页：预览 + 背景选择 + 分享/保存 */
 @Composable
 fun PosterScreen(data: PosterData, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    var darkStyle by remember { mutableStateOf(false) }
+    var bg by remember { mutableStateOf<PosterBg>(PosterBg.Gradient) }
     var saved by remember { mutableStateOf(false) }
     val graphicsLayer = rememberGraphicsLayer()
+
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            PhotoStore.decodeUri(ctx, uri)?.let { bg = PosterBg.Photo(it.asImageBitmap()) }
+        }
+    }
 
     Box(
         Modifier.fillMaxSize().background(Color(0xCC000000))
@@ -83,18 +117,49 @@ fun PosterScreen(data: PosterData, onClose: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = onClose) {
                     Text(stringResource(R.string.close), color = Color.White)
                 }
                 Spacer(Modifier.weight(1f))
-                StyleChip(stringResource(R.string.poster_style_gradient), !darkStyle) { darkStyle = false }
-                Spacer(Modifier.width(8.dp))
-                StyleChip(stringResource(R.string.poster_style_dark), darkStyle) { darkStyle = true }
-                Spacer(Modifier.width(12.dp))
             }
+
+            // 背景选择条：渐变 / 黑底 / 9 种纯色 / 照片
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Swatch(selected = bg == PosterBg.Gradient, onClick = { bg = PosterBg.Gradient }) {
+                    Box(Modifier.matchParentSize().background(PosterGradient))
+                }
+                Swatch(selected = bg == PosterBg.Dark, onClick = { bg = PosterBg.Dark }) {
+                    Box(Modifier.matchParentSize().background(PosterDark))
+                }
+                SolidPalette.forEach { color ->
+                    Swatch(selected = bg == PosterBg.Solid(color), onClick = { bg = PosterBg.Solid(color) }) {
+                        Box(Modifier.matchParentSize().background(color))
+                    }
+                }
+                Swatch(selected = bg is PosterBg.Photo, onClick = {
+                    photoPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }) {
+                    Box(
+                        Modifier.matchParentSize().background(Color(0xFF333338)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🖼", fontSize = 14.sp)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
 
             Box(
                 Modifier
@@ -106,7 +171,7 @@ fun PosterScreen(data: PosterData, onClose: () -> Unit) {
                         drawLayer(graphicsLayer)
                     }
             ) {
-                PosterCard(data, darkStyle)
+                PosterCard(data, bg)
             }
 
             Spacer(Modifier.height(24.dp))
@@ -150,48 +215,64 @@ fun PosterScreen(data: PosterData, onClose: () -> Unit) {
 }
 
 @Composable
-private fun StyleChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun Swatch(selected: Boolean, onClick: () -> Unit, content: @Composable BoxScope.() -> Unit) {
     Box(
         Modifier
+            .size(32.dp)
             .clip(CircleShape)
-            .background(if (selected) Color.White.copy(alpha = 0.25f) else Color.Transparent)
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) Color.White else Color.White.copy(alpha = 0.3f),
+                shape = CircleShape
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
-        Text(label, color = Color.White, fontSize = 13.sp)
+        content()
     }
 }
 
 @Composable
-private fun PosterCard(data: PosterData, darkStyle: Boolean) {
+private fun PosterCard(data: PosterData, bg: PosterBg) {
     val ctx = LocalContext.current
-    val bg: Modifier = if (darkStyle) {
-        Modifier.background(PosterDark)
-    } else {
-        Modifier.background(PosterGradient)
-    }
-    val accent = if (darkStyle) Brush.linearGradient(
+    // 黑底样式下文字用彩虹渐变点缀
+    val accent = if (bg == PosterBg.Dark) Brush.linearGradient(
         listOf(Color(0xFFFF6B9D), Color(0xFFFECA57), Color(0xFF00D2D3))
     ) else null
 
-    Column(
+    Box(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .then(bg)
-            .padding(26.dp)
     ) {
-        when (data) {
-            is PosterData.Single -> SingleContent(ctx, data.entry, accent)
-            is PosterData.Summary -> SummaryContent(ctx, data.stats, accent)
+        when (bg) {
+            is PosterBg.Gradient -> Box(Modifier.matchParentSize().background(PosterGradient))
+            is PosterBg.Dark -> Box(Modifier.matchParentSize().background(PosterDark))
+            is PosterBg.Solid -> Box(Modifier.matchParentSize().background(bg.color))
+            is PosterBg.Photo -> {
+                Image(
+                    bitmap = bg.bitmap,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize()
+                )
+                // 暗化遮罩保证白色文字可读
+                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.40f)))
+            }
         }
-        Spacer(Modifier.height(18.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Text(
-                stringResource(R.string.poster_brand),
-                color = Color.White.copy(alpha = 0.65f),
-                fontSize = 10.sp
-            )
+
+        Column(Modifier.fillMaxWidth().padding(26.dp)) {
+            when (data) {
+                is PosterData.Single -> SingleContent(ctx, data.entry, accent)
+                is PosterData.Summary -> SummaryContent(ctx, data.stats, accent)
+            }
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text(
+                    stringResource(R.string.poster_brand),
+                    color = Color.White.copy(alpha = 0.65f),
+                    fontSize = 10.sp
+                )
+            }
         }
     }
 }

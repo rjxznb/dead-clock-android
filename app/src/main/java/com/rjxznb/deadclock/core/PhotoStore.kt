@@ -36,6 +36,10 @@ object PhotoStore {
     fun count(ctx: Context): Int =
         dir(ctx).listFiles()?.count { it.extension == "jpg" } ?: 0
 
+    /** 从相册 Uri 解码并限制边长（海报背景等场景复用） */
+    fun decodeUri(ctx: Context, uri: Uri, maxSide: Int = 1600): Bitmap? =
+        try { decodeScaled(ctx, uri, maxSide) } catch (_: Exception) { null }
+
     private fun decodeScaled(ctx: Context, uri: Uri, maxSide: Int): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         ctx.contentResolver.openInputStream(uri)?.use {
