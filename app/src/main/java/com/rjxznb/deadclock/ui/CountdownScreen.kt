@@ -678,6 +678,33 @@ private fun SettingsContent(onThemeChanged: (AppTheme) -> Unit, onChanged: () ->
         }
 
         Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.settings_language), fontWeight = FontWeight.SemiBold)
+        val langs = listOf("system" to R.string.lang_system, "zh" to R.string.lang_zh, "en" to R.string.lang_en)
+        var currentLang by remember { mutableStateOf(DeathClock.appLanguage(ctx)) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            langs.forEach { (key, labelRes) ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).clickable {
+                        currentLang = key
+                        DeathClock.setAppLanguage(ctx, key)
+                        (ctx as? android.app.Activity)?.recreate()
+                    }
+                ) {
+                    RadioButton(selected = currentLang == key, onClick = {
+                        currentLang = key
+                        DeathClock.setAppLanguage(ctx, key)
+                        (ctx as? android.app.Activity)?.recreate()
+                    })
+                    Text(stringResource(labelRes), fontSize = 13.sp)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_reminder))
             Spacer(Modifier.weight(1f))

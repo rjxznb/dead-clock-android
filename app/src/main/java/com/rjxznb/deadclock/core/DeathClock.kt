@@ -70,6 +70,11 @@ object DeathClock {
     fun setPersistentEnabled(ctx: Context, on: Boolean) =
         prefs(ctx).edit().putBoolean("persistentOn", on).apply()
 
+    /** 应用语言："system" / "en" / "zh" */
+    fun appLanguage(ctx: Context): String = prefs(ctx).getString("appLanguage", "system") ?: "system"
+    fun setAppLanguage(ctx: Context, lang: String) =
+        prefs(ctx).edit().putString("appLanguage", lang).apply()
+
     fun lifeProgress(ctx: Context, nowMillis: Long): Double {
         val birth = birthDateMillis(ctx)
         val death = deathMillis(ctx)
